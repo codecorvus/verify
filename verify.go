@@ -15,12 +15,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package verify checks a signed CodeCorvus evidence export (format
-// codecorvus.exportacao-evidencia.v1) offline, without contacting CodeCorvus:
+// codecorvus.evidence-export.v1) offline, without contacting CodeCorvus:
 // the Ed25519 signature over the canonical form of the content, the hash of
 // every audit-trail record, the chaining (each record points to the hash of
 // the previous one), positions without gaps and the consistency of the totals.
 //
-// JSON field names follow the published format (in Portuguese).
+// JSON field names follow the published format (schema/evidence-export.v1.json).
 package verify
 
 import (
@@ -36,7 +36,7 @@ import (
 )
 
 // Format identifies this version of the export format.
-const Format = "codecorvus.exportacao-evidencia.v1"
+const Format = "codecorvus.evidence-export.v1"
 
 // Genesis is the previous hash of each organization's first record.
 var Genesis = strings.Repeat("0", 64)
@@ -44,71 +44,74 @@ var Genesis = strings.Repeat("0", 64)
 // Document is the exported file. Content stays raw: the signature covers its
 // canonical form, recomputed here.
 type Document struct {
-	Format    string          `json:"formato"`
-	Content   json.RawMessage `json:"conteudo"`
-	Signature Signature       `json:"assinatura"`
+	Format    string          `json:"format"`
+	Content   json.RawMessage `json:"content"`
+	Signature Signature       `json:"signature"`
 }
 
 // Signature is the block signed by CodeCorvus.
 type Signature struct {
-	Algorithm string `json:"algoritmo"`
-	KeyID     string `json:"chave_id"`
-	PublicKey string `json:"chave_publica"`
-	Value     string `json:"valor"`
+	Algorithm string `json:"algorithm"`
+	KeyID     string `json:"key_id"`
+	PublicKey string `json:"public_key"`
+	Value     string `json:"value"`
 }
 
 // Content is what verification reads from the signed content.
 type Content struct {
-	Format string `json:"formato"`
+	Format string `json:"format"`
 	Org    struct {
 		Login    string `json:"login"`
 		TenantID string `json:"tenant_id"`
 	} `json:"org"`
 	Period struct {
-		From string `json:"de"`
-		To   string `json:"ate"`
-	} `json:"periodo"`
+		From string `json:"from"`
+		To   string `json:"to"`
+	} `json:"period"`
 	Coverage struct {
-		MergedPRs      int64 `json:"prs_com_merge"`
-		ReviewedBefore int64 `json:"revisados_antes"`
-		Exceptions     int64 `json:"excecoes"`
-		NotJustified   int64 `json:"sem_justificativa"`
-	} `json:"cobertura"`
+		MergedPRs      int64 `json:"merged_prs"`
+		ReviewedBefore int64 `json:"reviewed_before_merge"`
+		Exceptions     int64 `json:"exceptions"`
+		Unjustified    int64 `json:"unjustified"`
+	} `json:"coverage"`
 	Exceptions []struct {
-		Justified bool `json:"justificada"`
-	} `json:"excecoes"`
-	Trail Trail `json:"trilha"`
+		Justified bool `json:"justified"`
+	} `json:"exceptions"`
+	Trail Trail `json:"trail"`
 }
 
 // Trail is the exported contiguous slice of the chain.
 type Trail struct {
-	FromPosition int64    `json:"de_posicao"`
-	ToPosition   int64    `json:"ate_posicao"`
+	FromPosition int64    `json:"from_position"`
+	ToPosition   int64    `json:"to_position"`
 	Total        int64    `json:"total"`
-	PreviousHash string   `json:"hash_anterior"`
-	LastHash     string   `json:"ultimo_hash"`
-	Records      []Record `json:"registros"`
+	PreviousHash string   `json:"previous_hash"`
+	LastHash     string   `json:"last_hash"`
+	Records      []Record `json:"records"`
 }
 
 // Record is an audit-trail event as CodeCorvus stores it.
 type Record struct {
 	TenantID     string            `json:"tenant_id"`
-	Position     int64             `json:"posicao"`
+	Position     int64             `json:"position"`
 	ID           string            `json:"id"`
-	Type         string            `json:"tipo"`
-	ReviewID     string            `json:"revisao_id"`
-	FindingID    string            `json:"achado_id"`
-	ActorUserID  string            `json:"ator_usuario_id"`
-	ActorLogin   string            `json:"ator_login"`
-	Data         map[string]string `json:"dados"`
-	At           string            `json:"em"`
-	PreviousHash string            `json:"hash_anterior"`
+	Type         string            `json:"type"`
+	ReviewID     string            `json:"review_id"`
+	FindingID    string            `json:"finding_id"`
+	ActorUserID  string            `json:"actor_user_id"`
+	ActorLogin   string            `json:"actor_login"`
+	Data         map[string]string `json:"data"`
+	At           string            `json:"at"`
+	PreviousHash string            `json:"previous_hash"`
 	Hash         string            `json:"hash"`
 }
 
 // hashed is the form of the record that goes into the hash: these fields, in
 // this order, encoded by Go's encoding/json (data keys sorted; <, > and &
-// escaped as <, > and &).
+// escaped as \u003c, \u003e and \u0026). The JSON keys are fixed by the format
+// and differ from the export field names on purpose: they are the keys under
+// which the audit trail hashes each record when it is written, so every
+// record, including those written before this format, stays verifiable.
 type hashed struct {
 	TenantID    string            `json:"tenant_id"`
 	Position    int64             `json:"posicao"`
@@ -138,7 +141,7 @@ func RecordHash(r Record) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// PublicKey is the key published at /.well-known/codecorvus-evidencia.pub.
+// PublicKey is the key published at /.well-known/codecorvus-evidence.pub.
 type PublicKey struct {
 	ID  string
 	Key ed25519.PublicKey
@@ -151,7 +154,7 @@ func KeyID(pub ed25519.PublicKey) string {
 }
 
 // ParsePublicKey accepts the file served by the public route (lines
-// "chave_id: …" and "publica: …"; lines starting with # are comments) or just
+// "key_id: …" and "public_key: …"; lines starting with # are comments) or just
 // the base64 key.
 func ParsePublicKey(text []byte) (PublicKey, error) {
 	var k PublicKey
@@ -160,10 +163,10 @@ func ParsePublicKey(text []byte) (PublicKey, error) {
 		line = strings.TrimSpace(line)
 		switch {
 		case line == "" || strings.HasPrefix(line, "#"):
-		case strings.HasPrefix(line, "chave_id:"):
-			k.ID = strings.TrimSpace(strings.TrimPrefix(line, "chave_id:"))
-		case strings.HasPrefix(line, "publica:"):
-			b64 = strings.TrimSpace(strings.TrimPrefix(line, "publica:"))
+		case strings.HasPrefix(line, "key_id:"):
+			k.ID = strings.TrimSpace(strings.TrimPrefix(line, "key_id:"))
+		case strings.HasPrefix(line, "public_key:"):
+			b64 = strings.TrimSpace(strings.TrimPrefix(line, "public_key:"))
 		case b64 == "" && !strings.Contains(line, ":"):
 			b64 = line
 		}
@@ -240,9 +243,9 @@ func Verify(file []byte, key *PublicKey) Result {
 			notJustified++
 		}
 	}
-	if c.Coverage.Exceptions != int64(len(c.Exceptions)) || c.Coverage.NotJustified != notJustified {
+	if c.Coverage.Exceptions != int64(len(c.Exceptions)) || c.Coverage.Unjustified != notJustified {
 		res.fail("coverage says %d exceptions (%d not justified), the list has %d (%d)", c.Coverage.Exceptions,
-			c.Coverage.NotJustified, len(c.Exceptions), notJustified)
+			c.Coverage.Unjustified, len(c.Exceptions), notJustified)
 	}
 	if c.Coverage.ReviewedBefore > c.Coverage.MergedPRs {
 		res.fail("reviewed before merge (%d) exceeds merged PRs (%d)", c.Coverage.ReviewedBefore, c.Coverage.MergedPRs)
@@ -274,7 +277,7 @@ func verifySignature(res *Result, doc Document, key *PublicKey) {
 		res.ExternalKey = true
 	} else {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("signature checked with the file's own key (%s); "+
-			"to prove authorship, run with --key and the key published at /.well-known/codecorvus-evidencia.pub", s.KeyID))
+			"to prove authorship, run with --key and the key published at /.well-known/codecorvus-evidence.pub", s.KeyID))
 	}
 	sig, err := base64.StdEncoding.DecodeString(s.Value)
 	if err != nil || len(sig) != ed25519.SignatureSize {

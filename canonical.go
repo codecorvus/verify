@@ -29,7 +29,7 @@ import (
 )
 
 // Canonical returns the canonical form of a JSON value, which the signature
-// covers (schema exportacao-evidencia.v1):
+// covers (schema evidence-export.v1):
 //
 //   - no whitespace outside strings;
 //   - object keys sorted by their UTF-8 bytes, no duplicates;

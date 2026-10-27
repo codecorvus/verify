@@ -9,7 +9,9 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - `corvus-verify`: offline verification of CodeCorvus evidence exports (format
-  `codecorvus.exportacao-evidencia.v1`): Ed25519 signature over the canonical content, record hashes, chaining,
+  `codecorvus.evidence-export.v1`): Ed25519 signature over the canonical content, record hashes, chaining,
   gaps and totals.
-- `--key` to require the signature from the published public key.
-- JSON Schema of the export format.
+- `--key` to require the signature from the published public key (`/.well-known/codecorvus-evidence.pub`, lines
+  `key_id:` and `public_key:`).
+- JSON Schema of the export format (`schema/evidence-export.v1.json`), with English field names and the fixed list
+  of keys that goes into each record hash.

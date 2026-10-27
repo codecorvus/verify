@@ -17,7 +17,7 @@
 // corvus-verify checks a CodeCorvus evidence export offline, without
 // contacting CodeCorvus.
 //
-//	corvus-verify <export.json> [--key <codecorvus-evidencia.pub>]
+//	corvus-verify <export.json> [--key <codecorvus-evidence.pub>]
 //
 // Exit status 0: verified; 1: not verified; 2: usage error or unreadable file.
 package main
@@ -32,7 +32,7 @@ import (
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
-const usage = "usage: corvus-verify <export.json> [--key <codecorvus-evidencia.pub>]"
+const usage = "usage: corvus-verify <export.json> [--key <codecorvus-evidence.pub>]"
 
 func run(args []string, stdout, stderr io.Writer) int {
 	var file, keyFile string

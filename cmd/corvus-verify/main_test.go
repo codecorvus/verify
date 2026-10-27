@@ -37,24 +37,24 @@ func validFile(t *testing.T) (doc, pub string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content := []byte(`{"formato":"` + verify.Format + `","org":{"login":"orbita-labs","tenant_id":"t"},` +
-		`"periodo":{"de":"2026-07-01","ate":"2026-09-30"},"cobertura":{"prs_com_merge":0,"revisados_antes":0,` +
-		`"excecoes":0,"sem_justificativa":0},"excecoes":[],"trilha":{"de_posicao":0,"ate_posicao":0,"total":0,` +
-		`"hash_anterior":"","ultimo_hash":"","registros":[]}}`)
+	content := []byte(`{"format":"` + verify.Format + `","org":{"login":"example-org","tenant_id":"t"},` +
+		`"period":{"from":"2026-07-01","to":"2026-09-30"},"coverage":{"merged_prs":0,"reviewed_before_merge":0,` +
+		`"exceptions":0,"unjustified":0},"exceptions":[],"trail":{"from_position":0,"to_position":0,"total":0,` +
+		`"previous_hash":"","last_hash":"","records":[]}}`)
 	canon, err := verify.Canonical(content)
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, _ := json.Marshal(map[string]any{"formato": verify.Format, "conteudo": json.RawMessage(content),
-		"assinatura": map[string]string{"algoritmo": "Ed25519", "chave_id": verify.KeyID(pk),
-			"chave_publica": base64.StdEncoding.EncodeToString(pk),
-			"valor":         base64.StdEncoding.EncodeToString(ed25519.Sign(priv, canon))}})
+	d, _ := json.Marshal(map[string]any{"format": verify.Format, "content": json.RawMessage(content),
+		"signature": map[string]string{"algorithm": "Ed25519", "key_id": verify.KeyID(pk),
+			"public_key": base64.StdEncoding.EncodeToString(pk),
+			"value":      base64.StdEncoding.EncodeToString(ed25519.Sign(priv, canon))}})
 	dir := t.TempDir()
-	doc, pub = filepath.Join(dir, "export.json"), filepath.Join(dir, "codecorvus-evidencia.pub")
+	doc, pub = filepath.Join(dir, "export.json"), filepath.Join(dir, "codecorvus-evidence.pub")
 	if err := os.WriteFile(doc, d, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	text := "chave_id: " + verify.KeyID(pk) + "\npublica: " + base64.StdEncoding.EncodeToString(pk) + "\n"
+	text := "key_id: " + verify.KeyID(pk) + "\npublic_key: " + base64.StdEncoding.EncodeToString(pk) + "\n"
 	if err := os.WriteFile(pub, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestRun(t *testing.T) {
 	}
 	raw, _ := os.ReadFile(doc)
 	tampered := filepath.Join(t.TempDir(), "tampered.json")
-	_ = os.WriteFile(tampered, bytes.Replace(raw, []byte(`"prs_com_merge":0`), []byte(`"prs_com_merge":1`), 1), 0o600)
+	_ = os.WriteFile(tampered, bytes.Replace(raw, []byte(`"merged_prs":0`), []byte(`"merged_prs":1`), 1), 0o600)
 	stdout.Reset()
 	if c := run([]string{tampered, "--key", pub}, &stdout, &stderr); c != 1 || !strings.Contains(stdout.String(), "NOT VERIFIED") {
 		t.Fatalf("tampered: exit %d\n%s", c, stdout.String())
