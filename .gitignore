@@ -1,0 +1,5 @@
+/corvus-verify
+*.test
+*.out
+dist/
+.DS_Store

@@ -1,0 +1,451 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codecorvus.com/schemas/exportacao-evidencia.v1.json",
+  "title": "CodeCorvus evidence export v1",
+  "description": "Signed evidence export (metadata only; field names are in Portuguese). HOW TO VERIFY (what `corvus-verify` does, offline): (1) SIGNATURE: Ed25519 with the public key served at /.well-known/codecorvus-evidencia.pub (chave_id = 'ed25519-' + first 16 hex chars of sha256 of the public key), over the CANONICAL FORM of `conteudo`: JSON with no whitespace outside strings; object keys in ascending UTF-8 byte order, no duplicates; integers only, in minimal decimal form; valid UTF-8 strings escaping only the quote, the backslash and U+0000–U+001F (\\b \\t \\n \\f \\r; others as lowercase \\u00xx), everything else literal. (2) RECORD HASH: hex(sha256(hash_anterior + '\\n' + J)), where J is the record JSON with exactly the fields tenant_id, posicao, id, tipo, revisao_id, achado_id, ator_usuario_id, ator_login, dados, em, in this order, no whitespace, keys of `dados` sorted, and Go encoding/json escaping (<, > and & as \\u003c, \\u003e, \\u0026; U+2028 and U+2029 as \\u2028 and \\u2029). (3) CHAINING: the first record has hash_anterior = trilha.hash_anterior (64 zeros when de_posicao = 1); each record points to the previous hash; positions are contiguous from de_posicao to ate_posicao; total = number of records; ultimo_hash = hash of the last one. (4) TOTALS: cobertura.excecoes and cobertura.sem_justificativa match the list of exceptions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formato",
+    "conteudo",
+    "assinatura"
+  ],
+  "properties": {
+    "formato": {
+      "const": "codecorvus.exportacao-evidencia.v1"
+    },
+    "conteudo": {
+      "$ref": "#/$defs/conteudo"
+    },
+    "assinatura": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algoritmo",
+        "chave_id",
+        "chave_publica",
+        "valor"
+      ],
+      "properties": {
+        "algoritmo": {
+          "const": "Ed25519"
+        },
+        "chave_id": {
+          "type": "string",
+          "pattern": "^ed25519-[0-9a-f]{16}$"
+        },
+        "chave_publica": {
+          "type": "string",
+          "description": "32 bytes, base64; compare with the published key (--key)"
+        },
+        "valor": {
+          "type": "string",
+          "description": "64 bytes, base64: Ed25519 over the canonical form of conteudo"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "conteudo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formato",
+        "org",
+        "gerada_em",
+        "gerada_por",
+        "confirmado_com",
+        "periodo",
+        "filtros",
+        "dados_desde",
+        "cobertura",
+        "excecoes",
+        "trilha"
+      ],
+      "properties": {
+        "formato": {
+          "const": "codecorvus.exportacao-evidencia.v1"
+        },
+        "org": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "login",
+            "tenant_id"
+          ],
+          "properties": {
+            "login": {
+              "type": "string"
+            },
+            "tenant_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "gerada_em": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "gerada_por": {
+          "type": "string",
+          "description": "Login of the person who exported"
+        },
+        "confirmado_com": {
+          "enum": [
+            "passkey",
+            "app_autenticador",
+            "codigo_recuperacao"
+          ]
+        },
+        "periodo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "de",
+            "ate"
+          ],
+          "properties": {
+            "de": {
+              "type": "string",
+              "format": "date"
+            },
+            "ate": {
+              "type": "string",
+              "format": "date",
+              "description": "Inclusive (UTC)"
+            }
+          }
+        },
+        "filtros": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repos",
+            "branches"
+          ],
+          "properties": {
+            "repos": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Empty = all"
+            },
+            "branches": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Empty = the branches protected by the gate"
+            }
+          }
+        },
+        "dados_desde": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "cobertura": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "prs_com_merge",
+            "revisados_antes",
+            "revisados_permil",
+            "excecoes",
+            "sem_justificativa",
+            "p90_ate_revisao_s"
+          ],
+          "properties": {
+            "prs_com_merge": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "revisados_antes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "revisados_permil": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "excecoes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sem_justificativa": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "p90_ate_revisao_s": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        "excecoes": {
+          "type": "array",
+          "description": "Every exception in the period and filters",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "merge_id",
+              "tipo",
+              "motivo",
+              "repo",
+              "pr",
+              "pr_url",
+              "base",
+              "head_sha",
+              "merge_sha",
+              "mergeado_em",
+              "mergeado_por",
+              "revisao_id",
+              "justificada",
+              "justificativa"
+            ],
+            "properties": {
+              "merge_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "tipo": {
+                "enum": [
+                  "merge_com_bloqueante_aberto",
+                  "merge_admin_por_cima",
+                  "merge_sem_revisao",
+                  "autoliberacao",
+                  "revisao_parcial"
+                ]
+              },
+              "motivo": {
+                "type": "string"
+              },
+              "repo": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "nome"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "nome": {
+                    "type": "string"
+                  }
+                }
+              },
+              "pr": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pr_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "base": {
+                "type": "string"
+              },
+              "head_sha": {
+                "$ref": "#/$defs/sha"
+              },
+              "merge_sha": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "mergeado_em": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "mergeado_por": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "revisao_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "justificada": {
+                "type": "boolean"
+              },
+              "justificativa": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "motivo",
+                      "link",
+                      "por",
+                      "em"
+                    ],
+                    "properties": {
+                      "motivo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 500
+                      },
+                      "link": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "por": {
+                        "type": "string"
+                      },
+                      "em": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "trilha": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "de_posicao",
+            "ate_posicao",
+            "total",
+            "hash_anterior",
+            "ultimo_hash",
+            "registros"
+          ],
+          "description": "Contiguous slice of the tenant chain: from the first to the last record with `em` in the period, not filtered by repository. Empty: positions 0 and empty hashes.",
+          "properties": {
+            "de_posicao": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ate_posicao": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hash_anterior": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64})?$"
+            },
+            "ultimo_hash": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64})?$"
+            },
+            "registros": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tenant_id",
+                  "posicao",
+                  "id",
+                  "tipo",
+                  "revisao_id",
+                  "achado_id",
+                  "ator_usuario_id",
+                  "ator_login",
+                  "dados",
+                  "em",
+                  "hash_anterior",
+                  "hash"
+                ],
+                "properties": {
+                  "tenant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "posicao": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "tipo": {
+                    "type": "string"
+                  },
+                  "revisao_id": {
+                    "type": "string",
+                    "description": "Empty when absent"
+                  },
+                  "achado_id": {
+                    "type": "string"
+                  },
+                  "ator_usuario_id": {
+                    "type": "string"
+                  },
+                  "ator_login": {
+                    "type": "string",
+                    "description": "Empty = the system (CodeCorvus)"
+                  },
+                  "dados": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "em": {
+                    "type": "string",
+                    "description": "RFC 3339 in UTC, fraction without trailing zeros: the exact text that is hashed"
+                  },
+                  "hash_anterior": {
+                    "$ref": "#/$defs/hash"
+                  },
+                  "hash": {
+                    "$ref": "#/$defs/hash"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
